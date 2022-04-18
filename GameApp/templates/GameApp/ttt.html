@@ -1,0 +1,314 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+
+{%block stylecss%}
+<link rel="stylesheet" href="{% static 'GameApp/ttt.css' %}" type="text/css">
+{%endblock stylecss%}
+{% block title %}Tic{% endblock title %}
+
+
+{% block body %}
+
+<script src='https://kit.fontawesome.com/a076d05399.js'></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+<div class="containera">
+    <div id="menuBar" style="text-align:right; padding-top:20px">
+        <button id="btnReset"><i class="fa fa-refresh" title="Restart the game."
+                style="font-size: 30px;color: maroon"></i></button>
+
+    </div>
+    <div id="divOption" class="option">
+        <label>Tic Tac Toe</label><br /><br /><br />
+        <label id="msg" style="font-size:20px;color:red"></label>
+        {% comment %} <input type="radio" name="avatar"><i class="fa fa-heart" style="font-size:50px;color:red"> &nbsp;
+            &nbsp;&nbsp;&nbsp;&nbsp;
+            <input type="radio" name="avatar"><i class="fa fa-music" style="font-size:50px;color:goldenrod"></i> {%endcomment %}
+    </div>
+    <div id="dvTable" class="divTable">
+        <table id="mainTable">
+            <tr>
+                <td id="C0" class="cell"></td>
+                <td id="C1" class="cell"></td>
+                <td id="C2" class="cell"></td>
+            </tr>
+            <tr>
+                <td id="C3" class="cell"></td>
+                <td id="C4" class="cell"></td>
+                <td id="C5" class="cell"></td>
+            </tr>
+            <tr>
+                <td id="C6" class="cell"></td>
+                <td id="C7" class="cell"></td>
+                <td id="C8" class="cell"></td>
+            </tr>
+        </table>
+
+    </div>
+</div>
+
+<script>
+    // Player as Class
+    var countdown;
+    class Player {
+        // Special constructor method
+        constructor(name, score, turnTotal, avatar, spot) {
+            // Set properties
+            this.name = name;
+            this.score = score;
+            this.turnTotal = turnTotal;
+            this.avatar = avatar;
+            this.spot = spot;
+
+        }
+    }
+
+    class Tiles {
+        constructor(id, width, height, x, y, snake, ladder, next) {
+            this.id = id;
+            this.width = width;
+            this.height = height;
+            this.x = x;
+            this.y = y;
+            this.snake = snake;
+            this.ladder = ladder;
+            this.next = next;
+        }
+
+    }
+
+
+    class Blocks {
+        constructor(id, className, innerText, bgColor, snake, ladder, next) {
+            this.id = id;
+            this.className = className;
+            this.innerText = innerText;
+            this.bgColor = bgColor;
+            this.snake = snake;
+            this.ladder = ladder;
+            this.next = next;
+        }
+
+    }
+
+
+
+    class MemoryBlock {
+        constructor(id, frontImage, backImage) {
+            this.id = id;
+            this.blockCSS = "block";
+            this.frontImage = frontImage;
+            this.backImage = backImage;
+            this.front = false;
+            this.back = true;
+            this.frontCSS = "block-front block-face";
+            this.backCSS = "block-back block-face";
+            this.imgCSS = "block-value";
+
+        }
+    }
+
+    function startTimer(duration, display) {
+        var timer = 60 * duration, minutes, seconds;
+        countdown = setInterval(() => {
+            minutes = parseInt(timer / 60, 10);
+            seconds = parseInt(timer % 60, 10);
+            minutes = minutes < 10 ? "0" + minutes : minutes;
+            seconds = seconds < 10 ? "0" + seconds : seconds;
+            display.textContent = `Time ${minutes}:${seconds}`;
+            if (--timer < 0) {
+                gameOver();
+            }
+        }, 1000);
+    }
+
+    class gameInfo {
+        constructor(totalTime, cards) {
+            this.cardsArray = cards;
+            this.totalTime = totalTime;
+            this.timeRemaining = totalTime;
+            //  this.timer = document.getElementById('time-remaining');
+            this.flips = 0;
+        }
+    }
+
+
+
+</script>
+
+<script>
+    var cells, emptyCells, moves, nextMove, avatar, gameOn, message, winSequence;
+    var cell0, cell1, cell2, cell3, cell4, cell5, cell6, cell7, cell8;
+
+    init();
+
+    function init() {
+        moves = 0;
+        gameOn = true;
+        winSequence = [];
+
+        cells = Array.from(document.getElementsByClassName('cell'));
+        cell0 = document.getElementById("C0");
+        cell1 = document.getElementById("C1");
+        cell2 = document.getElementById("C2");
+        cell3 = document.getElementById("C3");
+        cell4 = document.getElementById("C4");
+        cell5 = document.getElementById("C5");
+        cell6 = document.getElementById("C6");
+        cell7 = document.getElementById("C7");
+        cell8 = document.getElementById("C8");
+        document.getElementById("msg").textContent = "";
+        for (var i = 0; i < cells.length; i++) {
+            if (cells[i].hasChildNodes()) {
+                cells[i].removeChild(cells[i].childNodes[0]);
+            }
+            cells[i].style.backgroundColor = "";
+        }
+        addListeners();
+    }
+
+    function addListeners() {
+        document.getElementById("btnReset").addEventListener("click", reset);
+        emptyCells = cells.filter(element => element.innerHTML === "");
+        for (var i = 0; i < emptyCells.length; i++) {
+            emptyCells[i].addEventListener('click', clickCells);
+        }
+    }
+    function removeListeners() {
+        for (var i = 0; i < cells.length; i++) {
+            cells[i].removeEventListener('click', clickCells);
+        }
+    }
+
+    function reset() {
+        // alert("in reset");
+        init();
+    }
+
+
+    function clickCells() {
+        takeTurn(this.id);
+        if (checkWinner()) {
+            var wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+            Promise.resolve(500).then(() => wait(500)).then(() => { nextPlayer(); });
+        }
+        else
+            displayWinner();
+    }
+
+    function takeTurn(id) {
+        if (moves <= 9) {
+            moves += 1;
+            var icon = "";
+            if (moves % 2 !== 0) {
+                icon = `<i class="fa fa-heart" style="font-size:50px;color:red"></i>`;
+            }
+            else {
+                icon = `<i class="fa fa-music" style="font-size:50px;color:goldenrod"></i>`;
+            }
+            document.getElementById(id).innerHTML = icon;
+            removeListeners();
+        }
+
+    }
+
+    function nextPlayer() {
+        emptyCells = cells.filter(element => element.innerHTML === "");
+        if (emptyCells.length > 0) {
+            var randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            takeTurn(randomCell.id);
+            if (checkWinner())
+                addListeners();
+            else
+                displayWinner();
+        }
+
+    }
+
+    function checkWinner() {
+
+
+        if (cell0.hasChildNodes() && cell1.hasChildNodes() && cell2.hasChildNodes()) {
+            //  console.log(cell0.childNodes[0].className);
+            if (cell0.childNodes[0].className === cell1.childNodes[0].className && cell0.childNodes[0].className === cell2.childNodes[0].className) {
+                message = cell0.childNodes[0].className === "fa fa-heart" ? "You are the winner!" : "AI is the winner!";
+                winSequence = [cell0, cell1, cell2];
+                gameOn = false;
+            }
+        }
+        if (cell3.hasChildNodes() && cell4.hasChildNodes() && cell5.hasChildNodes()) {
+            //  console.log(cell3.childNodes[0].className);
+            if (cell3.childNodes[0].className === cell4.childNodes[0].className && cell3.childNodes[0].className === cell5.childNodes[0].className) {
+                message = cell3.childNodes[0].className === "fa fa-heart" ? "You are the winner!" : "AI is the winner!";
+                winSequence = [cell3, cell4, cell5];
+                gameOn = false;
+            }
+        }
+        if (cell6.hasChildNodes() && cell7.hasChildNodes() && cell8.hasChildNodes()) {
+            //  console.log(cell6.childNodes[0].className); 
+            if (cell6.childNodes[0].className === cell7.childNodes[0].className && cell6.childNodes[0].className === cell8.childNodes[0].className) {
+                message = cell6.childNodes[0].className === "fa fa-heart" ? "You are the winner!" : "AI is the winner!";
+                winSequence = [cell6, cell7, cell8];
+                gameOn = false;
+            }
+        }
+        if (cell0.hasChildNodes() && cell3.hasChildNodes() && cell6.hasChildNodes()) {
+            //console.log(cell0.childNodes[0].className);
+            if (cell0.childNodes[0].className === cell3.childNodes[0].className && cell0.childNodes[0].className === cell6.childNodes[0].className) {
+                message = cell0.childNodes[0].className === "fa fa-heart" ? "You are the winner!" : "AI is the winner!";
+                winSequence = [cell0, cell3, cell6];
+                gameOn = false;
+            }
+        }
+        if (cell1.hasChildNodes() && cell4.hasChildNodes() && cell7.hasChildNodes()) {
+            //console.log(cell1.childNodes[0].className);
+            if (cell1.childNodes[0].className === cell4.childNodes[0].className && cell1.childNodes[0].className === cell7.childNodes[0].className) {
+                message = cell1.childNodes[0].className === "fa fa-heart" ? "You are the winner!" : "AI is the winner!";
+                winSequence = [cell1, cell4, cell7];
+                gameOn = false;
+            }
+        }
+        if (cell2.hasChildNodes() && cell5.hasChildNodes() && cell8.hasChildNodes()) {
+            // console.log(cell2.childNodes[0].className);
+            if (cell2.childNodes[0].className === cell5.childNodes[0].className && cell2.childNodes[0].className === cell8.childNodes[0].className) {
+                message = cell2.childNodes[0].className === "fa fa-heart" ? "You are the winner!" : "AI is the winner!";
+                winSequence = [cell2, cell5, cell8];
+                gameOn = false;
+            }
+        }
+        if (cell0.hasChildNodes() && cell4.hasChildNodes() && cell8.hasChildNodes()) {
+            // console.log(cell0.childNodes[0].className);
+            if (cell0.childNodes[0].className === cell4.childNodes[0].className && cell0.childNodes[0].className === cell8.childNodes[0].className) {
+                message = cell0.childNodes[0].className === "fa fa-heart" ? "You are the winner!" : "AI is the winner!";
+                winSequence = [cell0, cell4, cell8];
+                gameOn = false;
+            }
+        }
+        if (cell2.hasChildNodes() && cell4.hasChildNodes() && cell6.hasChildNodes()) {
+            // console.log(cell2.childNodes[0].className);
+            if (cell2.childNodes[0].className === cell4.childNodes[0].className && cell2.childNodes[0].className === cell6.childNodes[0].className) {
+                message = cell2.childNodes[0].className === "fa fa-heart" ? "You are the winner!" : "AI is the winner!";
+                winSequence = [cell2, cell4, cell6];
+                gameOn = false;
+            }
+        }
+
+
+        return gameOn;
+
+    }
+
+    function displayWinner() {
+        document.getElementById("msg").textContent = message;
+        for (var i = 0; i < winSequence.length; i++) {
+            winSequence[i].style.backgroundColor = "cyan";
+        }
+    }
+
+
+</script>
+
+
+{% endblock body %}
